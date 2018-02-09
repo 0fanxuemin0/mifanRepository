@@ -1,0 +1,620 @@
+--------------------------BlockingQueue------------------------------------------
+阻塞队列 (BlockingQueue)是Java util.concurrent包下重要的数据结构，BlockingQueue提供了线程安全的队列访问方式：当阻塞队列进行插入数据时，如果队列已满，线程将会阻塞等待直到队列非满；从阻塞队列取数据时，如果队列已空，线程将会阻塞等待直到队列非空。并发包下很多高级同步类的实现都是基于BlockingQueue实现的。
+
+-------------------------前后台时间传递问题---------------------------------------
+在后台代码中如果有DateTime类型的数据使用系统自带的工具类序列化后将得到一个很长的数字表示日期数据,“2014-01-31”变成了1391141532000，这其实是1970 年 1 月 1 日至今的毫秒数；1391141532000/1000/60/60/24/365=44.11年，44+1970=2014年，按这种方法可以得出年月日时分秒和毫秒。
+js:new Date(parseInt((item.payTime.toString()).replace(/\D/igm, "")))
+上的使用正则/\D/igm达到替换所有非数字的目的，\D表示非数字，igm是参数.
+得到日期格式数据后可以再格式化固定格式字符串：
+function formatDate(date, format) {
+    if (!date) return;
+    if (!format) format = "yyyy-MM-dd";
+    switch (typeof date) {
+        case "string":
+            date = new Date(date.replace(/-/g, "/"));
+            break;
+        case "number":
+            date = new Date(date);
+            break;
+    }
+    if (!date instanceof Date) return;
+    var dict = {
+        "yyyy": date.getFullYear(),
+        "M": date.getMonth() + 1,
+        "d": date.getDate(),
+        "H": date.getHours(),
+        "m": date.getMinutes(),
+        "s": date.getSeconds(),
+        "MM": ("" + (date.getMonth() + 101)).substr(1),
+        "dd": ("" + (date.getDate() + 100)).substr(1),
+        "HH": ("" + (date.getHours() + 100)).substr(1),
+        "mm": ("" + (date.getMinutes() + 100)).substr(1),
+        "ss": ("" + (date.getSeconds() + 100)).substr(1)
+    };
+    return format.replace(/(yyyy|MM?|dd?|HH?|ss?|mm?)/g, function () {
+        return dict[arguments[0]];
+    });
+}
+
+
+
+--------------------------jquery submit()------------------------------------------
+执行提交操作，该选项的参数是一个对象，它包含以下属性：
+url：请求的URL地址。
+onSubmit: 提交之前的回调函数。
+success: 提交成功后的回调函数。
+
+下面的例子演示了如何提交一个有效并且避免重复提交的表单。
+
+$.messager.progress();	// 显示进度条
+$('#ff').form('submit', {
+	url: ...,
+	onSubmit: function(){
+		var isValid = $(this).form('validate');
+		if (!isValid){
+			$.messager.progress('close');	// 如果表单是无效的则隐藏进度条
+		}
+		return isValid;	// 返回false终止表单提交
+	},
+	success: function(){
+		$.messager.progress('close');	// 如果提交成功则隐藏进度条
+	}
+});
+
+
+----------------------com.tuniu.srs.util.JsonUtil 工具类使用注意-------------
+
+当使用JsonUtil.toList（'',''）方法对接收的前台json串进行转换时，如果有属性字段需要转成Date类型，那么此字段尽量符合"yyyy-mm-dd HH:mm:ss"长日期格式。
+
+因为工具类JsonUtil可以通过JsonUtil.setDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));来修改日期字段（看不到源码应该是静态变量）的转换格式。（此外JsonUtil.toString（'',''）方法也可以修改日期格式）
+如果前台传入的日期为“yyyy-mm-dd”短日期格式，后台有程序将工具类的格式设置为"yyyy-MM-dd HH:mm:ss"长日期格式，则会报转换错误（ ERROR com.tuniu.srs.util.JsonUtil - Can not construct instance of java.util.Date from String value '2017-08-23':），若碰巧刚好设置的是短日期格式，则会转换成功。 所以测试或生产此问题不是每次都可以复现！
+反之前台传入长日期格式，后台设置为短日期或者长日期格式都是不会报错的。
+
+
+----------------------------JMS queue和topic--------------------------------
+queue：点对点队列，消息生产者发布一个消息进入消息队列，此时若没有活动的消费者来获取消息则保存在队列中，知道有消费者来获取该消息并且签收成功，此条消息才会在队列中删除,一条消息只会被一个消费者消费。
+
+topic：发布订阅模式（publish/subscribe,pub/sub）,当生产者发布消息到主题队列中时，消息管理中心会同时向正在活跃的消费者进程（多个）推送该条消息，直到所有的消费者全部签收成功，此消息才会被删除。 若发布消息线上没有活跃的消费者，则此条消息不推送直接删除，当消费者需要重新获取该消息时，需要生产者再次发布。
+
+
+----------------------------------编码-------------------------------------
+
+Ascii编码（不支持中文）      -------------------》》UNICODE国际标谁化编码（支持中文）
+    |                                                         |
+    |                                                         |
+ GB2312（中文扩展）                                      UTF-8（互联网普及后出现）
+
+在Email的传送过程中，由于历史原因，Email只被允许传送ASCII可见字符，即一个8位字节的低7位，ascii表中的1-128位。因此，如果您发送了一封带有非ASCII字符（即字节的最高位是1，128-255）的Email通过有“历史问题”的网关时就可能会出现问题。网关可能会把最高位置为0！基于以上原因产生了Base64编码。Base64编码要求把3个8位字节（3*8=24）转化为4个6位的字节（4*6=24），之后在6位的前面补两个0，形成8位一个字节的形式。 
+
+网址路径的编码，用的是utf-8编码
+网址参数的编码，用的是操作系统的默认编码
+GET和POST方法的编码，用的是网页的编码。<meta http-equiv="Content-Type" content="text/html;charset=xxxx">
+在Ajax调用中，IE总是采用GB2312编码（操作系统的默认编码），而Firefox总是 采用utf-8编码
+
+一个utf8数字占1个字节
+一个utf8英文字母占1个字节
+一个utf8汉字少数占用3个字节，多数占用4个字节。
+
+
+---------------------------------------Ajax get和post编码问题------------------------------------------------------------
+1、xtmlhttp 返回的数据默认的字符编码是utf-8，如果客户端页面是gb2312或者其它编码数据就会产生乱码
+2、post方法提交数据默认的字符编码是utf-8，如果服务器端是gb2312或其他编码数据就会产生乱码
+解决的思想就是保证前后台编码一致，目前最流行的编码就是utf-8，将前后台均设置为该格式。
+如果你这么做了以后后台还有乱码问题，则检查下你的提交方式是否为get，如果是，则需要在传递参数之前对参数做一次转码，encodeURI(encodeURI()),后台收到参数时在对其解码URLDecoder.decode。
+
+
+
+--------------------------不加www二级域名有哪些好处和坏处？------------------------------------
+根域名: .   顶级域名：.com .cn .edu   二级域名：baidu.com,google.com   三级域名： www.baidu.com等
+
+不加 www 的裸域名好处主要是域名更加简短、容易记忆。坏处就多了，讲几个主要的技术原因：
+
+    裸域名只能绑定 DNS 的 A 记录，不能绑定 CNAME 记录。也就是说你不能把裸域设定为另外域名的别名。很多时候这对管理不是很方便，特别是使用第三方托管服务的时候。如果第三方迁移服务器导致 IP 地址变更，你必须自己去更改 DNS 的 A 记录。
+
+    比如你的个人博客采用 Tumblr 的服务，如果使用裸域，你需要手动将你域名的 A 地址指向 Tumblr 指定的 IP 地址。Tumblr 如果迁移了机房，所有通过这种方式设定个人域名的用户都必须更改自己的 DNS 才能继续使用，否则服务就会中断。使用子域名的 CNAME 记录就相对简单很多，只需要将 www 子域名的 CNAME 字段指向 http://domains.tumblr.com 这个域名，之后如果 Tumblr 更改 IP 地址，他们只需要重新设置 http://domains.tumblr.com 这个域名的 A 记录，而无需要求每个用户去更改 DNS 记录。
+
+    这个技术上的限制导致许多大型的第三方服务商不支持使用裸域。典型的如 Google 的服务，现在都不能使用裸域。Google 的服务用户基数大，不得不采用 DNS 级别的分布式，使用到的 IP 地址太多，而且变动大。让用户绑定 A 记录的话不利于负载均衡，维护起来也是几乎不可能完成的任务。同理，大部分 CDN 也不支持裸域。
+    裸域的 cookie 的作用范围太大。假如知乎也采用裸域，那么知乎所有 cookie 的作用范围就包括 http://zhihu.com 下的所有子域名。也就是说访问 http://foo.zhihu.com 和 http://bar.zhihu.com 的时候都会带上 http://zhihu.com 裸域页面设置的 cookie。从安全、隐私、可扩展性、以及管理的角度而言，这对很多大型网站来说是不可接受的。
+    URL 的正则匹配，如果带 www 前缀的并且以 .com/.net/.org 结尾的，通常成功的机会要大很多。这个你会在许多文本编辑器里面遇到。如果 URL 不是 www 开头，并且也不是三大顶级域名结尾的，匹配成功的概率就要小很多。这是使用过程中有时候会让人很抓狂的点，重不重要全看你的用途和场合了。
+
+
+另外一点非技术上的考量：用 www 子域名的好处体现在线下的环境，比如户外广告、报纸杂志、语音广播、语音电话等使用场合，www 这个前缀（不管是视觉的还是听觉的）能够很明确的提醒受众，这个信息片段是一个网站。有人会说加上 http:// 前缀也能解决这个问题，但现在随着以 Chrome/Safari 为首的浏览器都开始在地址栏里隐藏 http:// 协议前缀了，普通用户对于 http:// 这几个字符的理解会越来越模糊，所以如果是线下的话，保留 www 这个 visual/vocal cue 还是有一定意义的。
+
+总的来说对于大访问量或多子域名的网站来说，不建议使用裸域。小流量或子域名少的网站的话就看个人爱好了。我挺喜欢裸域的。最近几年流行起来的「单页网页应用」(Single Page Web App) 也是以采用裸域的居多，Twitter 算是一例。
+
+
+--------------------------------------futures.addCallback()-----------------------------
+futures.addCallback(ListenableFuture future, FutureCallback callback, Executor executor)
+每当传入一个future，executor线程池会创建一个线程A，A线程中的run方法会调用future的get方法，阻塞，直到future句柄所指向的线程返回结果，然后线程A拿到结果并最终调用回调类callback的回调方法onSuccess（result），接下来执行回调逻辑直到结束！
+
+传统JDK中的Future通过异步的方式计算返回结果:在多线程运算中可能或者可能在没有结束返回结果，Future是运行中的多线程的一个引用句柄，确保在服务执行返回一个Result。
+ListenableFuture可以允许你注册回调方法(callbacks)，在运算（多线程执行）完成的时候进行调用,  或者在运算（多线程执行）完成后立即执行。这样简单的改进，使得可以明显的支持更多的操作，这样的功能在JDK concurrent中的Future是不支持的。
+ListenableFuture 中的基础方法是addListener(Runnable, Executor), 该方法会在多线程运算完的时候，指定的Runnable参数传入的对象会被指定的Executor执行。
+
+
+
+-----------------------------Runnable和Callable的区别---------------------------------------------------
+
+(1)Callable规定的方法是call(),Runnable规定的方法是run().
+(2)Callable的任务执行后可返回值，而Runnable的任务是不能返回值得
+(3)call方法可以抛出异常，run方法不可以
+(4)运行Callable任务可以拿到一个Future对象，Future 表示异步计算的结果。它提供了检查计算是否完成的方法，以等待计算的完成，并获取计算的结果。计算完成后只能使用 get 方法来获取结果，如果线程没有执行完，Future.get()方法可能会阻塞当前线程的执行；如果线程出现异常，Future.get()会throws InterruptedException或者ExecutionException；如果线程已经取消，会跑出CancellationException。取消由cancel 方法来执行。isDone确定任务是正常完成还是被取消了。一旦计算完成，就不能再取消计算。如果为了可取消性而使用 Future 但又不提供可用的结果，则可以声明Future<?> 形式类型、并返回 null 作为底层任务的结果。
+--------------------------------------------Future模式-------------------------------------------------
+Future模式在请求发生时，会先产生一个Future凭证给发出请求的客户，它的作用就像是Proxy物件，同时，由一个新的执行线程持续进行目标物件的生成（Thread-Per-Message），真正的目标物件生成之后，将之设定至Future之中，而当客户端真正需要目标物件时，目标物件也已经准备好，可以让客户提取使用。
+结合JDK的Future来看，就是你run线程后，你可以把线程的返回值赋给Future并返回一个Future对象。这时你可以立即拿到这个对象，然后进行下面的逻辑。但是如果你要get这个Future中的线程结果，就会被阻塞直到线程结束。
+就相当于现在的期房，你把手续和钱都交上去了，就可以马上拿到合同，但只有合同没有房子。这个时候你已经是有房一族了，你可以先去买家电买装修（走下面的其他逻辑）。但是你要把家电和装修放进去，就必须等到房子完工（阻塞）
+
+
+-----------------------------mybatis 知识点-------------------------------
+<foreach> 只能接收list类型的参数，不可以接受String类型。
+
+jdbcType=”DATE” 不论是持久化数据还是获取数据，都只能得到年月日信息。 
+jdbcType=”TIMESTAME”或不指定jdbcType属性，在持久化数据和获取数据时都会带有时分秒信息。
+
+-----------------------------JS 获取path------------------------------------------
+String path = request.getContextPath(); 获取项目跟路径webroot    一般是"/项目名"
+String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.getServerPort()+path+"/";  
+getScheme（）获取请求协议http或者https   getServerName（）获取服务地址   
+
+-----------------------------Javaweb中的classpath---------------------------------
+1、classpath 路径在每个J2ee项目中都会用到，即WEB-INF下面的classes目录，所有src目录下面的java、xml、properties等文件编译后都会在此，所以在开发时常将相应的xml配置文件放于src或其子目录下；引用classpath路径下的文件，只需在文件名前加classpath:(需保证该文件确实位于classpath路径下);
+2、jsp、js、css、image等一般不会包含在下面，会在webapp下单独建一个文件夹存放，所以引用该类资源时需要指定webapp下具体的路径
+3、classpath*的使用：当项目中有多个classpath路径，并同时加载多个classpath路径下（此种情况多数不会遇到）的文件，*就发挥了作用，如果不加*，则表示仅仅加载第一个classpath路径
+
+
+
+-----------------------------------------------------------spring mvc---------------------------------------------------------
+要使用spring mvc中的@Controller注解，除了要扫描注解外<context:component-scan base-package=""/>，还必须要配置<mvc:annotation-driven />，否则org.springframework.web.servlet.DispatcherServlet无法找到控制器并把请求分发到控制器。
+
+---------------------------------------------------------SpringMVC 拦截器不拦截静态资源的三种处理方式-----------------------------------
+1、SpringMVC提供<mvc:resources>来设置静态资源
+2、使用默认的静态资源处理Servlet处理静态资源(涉及spring-mvc.xml, web.xml)
+	（1）在spring-mvc.xml中启用默认Servlet   <mvc:default-servlet-handler/>
+	（2）在web.xml中增加对静态资源的处理
+		 <servlet-mapping>    
+		     <servlet-name>default</servlet-name>    
+		     <url-pattern>*.js</url-pattern>    
+		     <url-pattern>*.css</url-pattern>    
+		     <url-pattern>/assets/*"</url-pattern>    
+		     <url-pattern>/images/*</url-pattern>    
+		 </servlet-mapping> 
+		但是当前的设置必须在Spring的Dispatcher的前面
+3、修改Spring的全局拦截设置为*.do的拦截（涉及web.xml），这样设置，Spring就会只针对以'.do'结尾的请求进行处理，不再维护静态资源，静态资源就会由默认的servlet来处理。
+
+-----------------------------------------------------POJO  javaBean  EJB-----------------------------------------------------------
+POJO（Plain Old Java Object）这种叫法是Martin Fowler、Rebecca Parsons和Josh MacKenzie在2000年的一次演讲的时候提出来的。按照Martin Fowler的解释是“Plain Old Java Object”，从字面上翻译为“纯洁老式的java对象”，但大家都使用“简单java对象”来称呼它。
+POJO的内在含义：
+有一些private的参数作为对象的属性，然后针对每一个参数定义get和set方法访问的接口。
+没有从任何类继承、也没有实现任何接口，更没有被其它框架侵入的java对象。
+
+JavaBean是一种JAVA语言写成的可重用组件。JavaBean符合一定规范编写的Java类，不是一种技术，而是一种规范。大家针对这种规范，总结了很多开发技巧、工具函数。符合这种规范的类，可以被其它的程序员或者框架使用。
+它的方法命名，构造及行为必须符合特定的约定：
+	1所有属性为private。
+	2这个类必须有一个公共的缺省构造函数。即是提供无参数的构造器。
+	3这个类的属性使用getter和setter来访问，其他方法遵从标准命名规范。
+	4这个类应是可序列化的。实现serializable接口。 
+EJB(Enterprise JavaBean): 我认为它是一组"功能"JavaBean的集合。上面说了JavaBean是实现了一种规范的Java对象。这里说EJB是一组JavaBean，的意思是这一组JavaBean组合起来实现了某个企业组的业务逻辑。这里的一组JavaBean不是乱组合的，它们要满足能实现某项业务功能的搭配
+
+-------------------------------------------------------------------Java的对象序列化------------------------------------------------------------
+Java的对象序列化是指将那些实现了Serializable接口的对象转换成一个字符序列，并能够在以后将这个字节序列完全恢复为原来的对象。这一过程甚至可通过网络进行，这意味着序列化机制能自动弥补不同操作系统之间的差异。只要对象实现了Serializable接口（记住，这个接口只是一个标记接口，不包含任何的方法。
+如果我们想要序列化一个对象，首先要创建某些OutputStream(如FileOutputStream、ByteArrayOutputStream等)，然后将这些OutputStream封装在一个ObjectOutputStream中。这时候，只需要调用writeObject()方法就可以将对象序列化，并将其发送给OutputStream（记住：对象的序列化是基于字节的，不能使用Reader和Writer等基于字符的层次结构）。而饭序列的过程（即将一个序列还原成为一个对象），需要将一个InputStream(如FileInputstream、ByteArrayInputStream等)封装在ObjectInputStream内，然后调用readObject()即可。
+对象序列化过程不仅仅保存单个对象，还能追踪对象内所包含的所有引用，并保存那些对象（这些对象也需实现了Serializable接口）,深度复制!!!!!!
+
+ 在Java中，软件的兼容性是一个大问题，尤其在使用到对象串行性的时候，那么在某一个对象已经被串行化了，可是这个对象又被修改后重新部署了，那么在这种情况下， 用老软件来读取新文件格式虽然不是什么难事，但是有可能丢失一些信息。 serialVersionUID来解决这些问题，新增的serialVersionUID必须定义成下面这种形式：static final long serialVersionUID=-2805284943658356093L;。其中数字后面加上的L表示这是一个long值。 通过这种方式来解决不同的版本之间的串行话问题。
+
+ ----------------------------------------mysql 实现动态传入表名、列名------------------------------------------------------------------------
+  1.添加属性statementType="STATEMENT"
+  2.同时sql里的属有变量取值都改成${xxxx}，而不是#{xxx}
+    
+    <delete id="deleteTableData" parameterType="java.util.Map" statementType="STATEMENT">  
+        <![CDATA[ 
+            delete from ${table} where 
+            ${col} < ${date}]]>  
+    </delete>  
+
+1. statementType：STATEMENT（非预编译），PREPARED（预编译）或CALLABLE中的任意一个，这就告诉 MyBatis 分别使用Statement，PreparedStatement或者CallableStatement。默认：PREPARED。这里显然不能使用预编译，要改成非预编译。
+2. ${xxxx}：$将传入的数据直接显示生成在sql中，对于字符串数据，需要手动加上引号,或使用#{xxxx}
+    String dateStr = DateFormatUtils.format(date.getTime(), "yyyy-MM-dd HH:mm:ss");  
+    dateStr = "'" + dateStr + "'"; 
+
+
+
+
+----------------------------------------------------------------云-------------------------------------------------------------
+云其实是互联网的一个隐喻，云计算其实就是使用互联网来接入存储或者运行在远程服务器端的应用，数据，或者服务。 任何一个使用基于互联网的方法来计算，存储和开发的公司，都可以从技术上叫做从事云的公司
+其实云计算分几层的，分别是Infrastructure（基础设施）-as-a- Service，Platform（平台）-as-a-Service，Software（软件）-as-a-Service。基础设施在最下端，平台在 中间，软件在顶端
+
+
+--------------------------------------------------AMQP--------------------------------------------------------------------------
+AMQP模型描述了一套模块化的组件以及这些组件之间进行连接的标准规则。
+在服务器中，三个主要功能模块连接成一个处理链完成预期的功能：
+“exchange”接收发布应用程序发送的消息，并根据一定的规则将这些消息路由到“消息队列”。
+“message queue”存储消息，直到这些消息被消费者安全处理完为止。
+“binding”定义了exchange和message queue之间的关联，提供路由规则。
+使用这个模型我们可以很容易的模拟出存储转发队列和主题订阅这些典型的消息中间件概念。
+一个AMQP服务器类似于邮件服务器，exchange类似于消息传输代理（email里的概念），message queue类似于邮箱。Binding定义了每一个传输代理中的消息路由表，发布者将消息发给特定的传输代理，然后传输代理将这些消息路由到邮箱中，消费者从这些邮箱中取出消息。
+--------------------------------------------------MQ-------------------------------------------------------------------------------
+消息队列（MQ）是一种应用程序对应用程序的通信方法。应用程序通过写和检索出入列队的针对应用程序的数据（消息）来通信，而无需专用连接来链接它们。消息传递指的是程序之间通过在消息中发送数据进行通信，而不是通过直接调用彼此来通信，直接调用通常是用于诸如远程过程调用的技术。排队指的是应用程序通过队列来通信。队列的使用除去了接收和发送应用程序同时执行的要求。
+--------------------------------------------------ACk-------------------------------------------------------------------------------
+ACK (Acknowledgement）即是确认字符，在数据通信中，接收站发给发送站的一种传输类控制字符。表示发来的数据已确认接收无误。
+
+
+
+
+------------------------------------------------下面就来具体介绍下happens-before原则（先行发生原则）：------------------------------------------------
+
+    程序次序规则：一个线程内，按照代码顺序，书写在前面的操作先行发生于书写在后面的操作
+    锁定规则：一个unLock操作先行发生于后面对同一个锁额lock操作
+    volatile变量规则：对一个变量的写操作先行发生于后面对这个变量的读操作
+    传递规则：如果操作A先行发生于操作B，而操作B又先行发生于操作C，则可以得出操作A先行发生于操作C
+    线程启动规则：Thread对象的start()方法先行发生于此线程的每个一个动作
+    线程中断规则：对线程interrupt()方法的调用先行发生于被中断线程的代码检测到中断事件的发生
+    线程终结规则：线程中所有的操作都先行发生于线程的终止检测，我们可以通过Thread.join()方法结束、Thread.isAlive()的返回值手段检测到线程已经终止执行
+    对象终结规则：一个对象的初始化完成先行发生于他的finalize()方法的开始
+
+
+
+--------------------------------------------网络通信协议分层---------------------------------------------------------------------------------
+
+应用层：
+    HTTP（Hypertext Transfer Protocol 超文本传输协议，显示网页）
+    DNS（Domain Name System）
+    FTP（File Transfer Protocol）
+    SFTP（SSH File Transfer Protocol，和FTP不一样）
+    SCP（Secure copy，based on SSH）
+    SSH （Secure Shell）
+通信层：
+    TCP（Transmission Control Protocol 三次握手传输协议）
+    UDP
+网络层：
+    IP（Internet Protocol）
+    ICMP（Internet Control Message Protocol，主要用于路由发送错误报告）
+链接层：
+    MAC（media access control）
+
+--------------------------------easyUI 知识点----------------------------------------------------------------------------------------
+
+解析器是easyui非常重要的基础组件,在easyui中我们能够简单的通过class定义一个组件,从而渲染出非常好的交互效果。就是通过parser进行解析的。parser会获取所有在指定范围内定义为easyui组件的class定义,并且根据后缀定义把当前节点解析渲染成特定的组件。
+使用方式：1、$.parser.parse();不带参数,默认解析该页面中所有被定义为easyui组件的节点。 2、$.parser.parse('#cc');带一个jquery选择器，使用这种方式我们可以单独解析局部的easyui组件节点。 
+不过这里要说明的是这个jquery选择器必须是你解析组件的父级以上的节点。也就是说这个查找出来的节点相当于一个容器,它只会解析容器里面的内容。 
+
+使用场景：
+自动调用parser：最主要的运用场景,只要我们书写相应的class,easyui就能成功的渲染页面,这是因为解析器在默认情况下,会在dom加载完成的时候($(docunment).ready)被调用,而且是渲染整个页面。
+手动调用parser： 需要手动调用的情况是:当页面已经加载完成,但是此时我们使用js生成的DOM中包含了easyui支持的class,并且我们也有将其渲染成easyui组件的需求。在这种情况下手动调用parser就不可避免了。
+
+
+------------------------------------------------------------------------------------------------------------------------------
+@responseBody注解的作用是将controller的方法返回的对象通过适当的转换器转换为指定的格式之后，写入到response对象的body区，通常用来返回JSON数据或者是XML
+数据，需要注意的呢，在使用此注解之后不会再走试图处理器，而是直接将数据写入到输入流中，他的效果等同于通过response对象输出指定格式的数据。
+
+
+----------------------------------------------------------------------ContextLoaderListener------------------------------------------------------------------
+首先，对于一个web应用，其部署在web容器中，web容器提供其一个全局的上下文环境，这个上下文就是ServletContext，其为后面的spring IoC容器提供宿主环境；
+
+其次，在web.xml中会提供有contextLoaderListener。在web容器启动时，会触发容器初始化事件，此时contextLoaderListener会监听到这个事件，其contextInitialized方法会被调用，在这个方法中，spring会初始化一个启动上下文，这个上下文被称为根上下文，即WebApplicationContext，这是一个接口类，确切的说，其实际的实现类是XmlWebApplicationContext。这个就是spring的IoC容器，其对应的Bean定义的配置由web.xml中的context-param标签指定。在这个IoC容器初始化完毕后，spring以WebApplicationContext.ROOTWEBAPPLICATIONCONTEXTATTRIBUTE为属性Key，将其存储到ServletContext中，便于获取；
+
+再次，contextLoaderListener监听器初始化完毕后，开始初始化web.xml中配置的Servlet，这个servlet可以配置多个，以最常见的DispatcherServlet为例，这个servlet实际上是一个标准的前端控制器，用以转发、匹配、处理每个servlet请求。DispatcherServlet上下文在初始化的时候会建立自己的IoC上下文，用以持有spring mvc相关的bean。在建立DispatcherServlet自己的IoC上下文时，会利用WebApplicationContext.ROOTWEBAPPLICATIONCONTEXTATTRIBUTE先从ServletContext中获取之前的根上下文(即WebApplicationContext)作为自己上下文的parent上下文。有了这个parent上下文之后，再初始化自己持有的上下文。这个DispatcherServlet初始化自己上下文的工作在其initStrategies方法中可以看到，大概的工作就是初始化处理器映射、视图解析等。这个servlet自己持有的上下文默认实现类也是mlWebApplicationContext。初始化完毕后，spring以与servlet的名字相关(此处不是简单的以servlet名为Key，而是通过一些转换，具体可自行查看源码)的属性为属性Key，也将其存到ServletContext中，以便后续使用。这样每个servlet就持有自己的上下文，即拥有自己独立的bean空间，同时各个servlet共享相同的bean，即根上下文(第2步中初始化的上下文)定义的那些bean。
+
+
+--------------------------------------------------------------------------RequestContextListener------------------------------------------------------------------
+在Spring2.0中除了以前的Singleton和Prototype外又加入了三个新的web作用域，分别为request、session和global session，如果你想让你的容器里的某个bean拥有其中某种新的web作用域，除了在bean级上配置相应的scope属性，还必须在容器级做一个额外的初始化配置。 
+    <listener>    
+        <listener-class>org.springframework.web.context.request.RequestContextListener</listener-class>    
+    </listener>
+也许会有一个疑问，已经通过ContextLoaderListener(或ContextLoaderServlet)将Web容器与Spring容器整合，为什么这里还要用额外的RequestContextListener以支持Bean的另外3个作用域，原因是ContextLoaderListener实现ServletContextListener监听器接口，而ServletContextListener只负责监听Web容器的启动和关闭的事件。RequestContextFilter实现ServletRequestListener监听器接口，该监听器监听HTTP请求事件，Web服务器接收的每次请求都会通知该监听器。通过配置RequestContextFilter，Spring容器与Web容器结合的更加密切。 
+
+-----------------------------------------------------------------------------WebAppRootListener---------------------------------------------------------------------
+这个监听器会在web上下文初始化的时候，cs调用webUtil的对应方法，首先获取根传递进来的servletContext得到物理路径，String path=servletContext.getRealPath("/");  然后找到context-param的webAooRootKey对应的param-value，把param-value的值作为key，上面配置的是"myroot", 接着执行System.setProperty("myroot",path)。这样在web中就可以使用System.getProperty("myroot")来获取系统的绝对路径。
+注：
+1）如果只配置了监听器，没有配置webAppRootKey， 默认wenAppRootKey对应的param-value的值为webapp.root。
+2）上面得到系统路径是Spring的做法，和平时自己采用的方法基本一致，都是写一个监听器，然后得到物理路径后手动放入System中，一般还会在这个监听器中加载配置文件，获取配置文件的值。
+
+----------------------------------------------------${pageContext.request.contextPath}--------------------------------------------------------
+该语法是在jsp页面中使用的 
+http//:localhost:8080/test/hello.jsp 
+${pageContext.request.contextPath}或<%request.getContextPath%>就是从这个请求路径（URL）上截取（项目名）---->  /test   看清楚，前面是有"/",而这个“/”代表的是-->"http//:localhost:8080"（服务器路径）
+
+
+-----------------------------------------------------Ajax url： 总结---------------------------------------------------------------------------------------
+ajax的url有两种，一种是绝对路径，另一种是相对路径。
+ 
+一、绝对路径：包括协议名称、主机地址、端口、web项目名称等的完整请求路径。
+    例如：
+    $.ajax({
+        url:"http://localhost:8080/webname/test"
+    });
+     
+    好处：比如在webA项目中的ajax需要请求webB项目中的服务，则必须使用绝对路径。
+    坏处：使用绝对路径要求古地理更web项目的名称，如果webB项目重命名了，则对应的ajax请求都需要修改。
+二、相对路径：不需要协议名、主机地址、端口、web项目名称，只需要请求的路径。
+    假设：
+    项目路径：http://localhost:8080/webname
+    页面路径：/webname/index.html（A页面），/webname/test/test.html（B页面）
+    请求路径：/request/ajaxtest，request/ajaxtest
+     1、如果请求路径以根路径开头，则无论什么ajax在什么页面，该请求都是相对于服务器的根路径，最后的请求路径都是：http://localhost:8080/request/ajaxtest
+        例如：
+        $.ajax({
+            url :"/request/ajaxtest"
+        });
+        原因：以"/"开头，是表示该请求基于从服务器的根路径，即不是相对于html的路径。
+     
+    2、如果请求不以根路径开头（常见），则该请求路径是相对于html所在的路径的。
+        a、假如请求在index页面，最终的请求路径是：http://localhost:8080/webname/request/ajaxtest。
+        //   /webname/index.html页面
+        $.ajax({
+            url:"request/ajaxtest"
+        });
+        原因：index.html页面对应的路径是"/webname/"，所以将url跟在这个路径下就是最终的请求路径。
+     
+        b、假如请求在test页面，最终的请求路径是：http://localhost:8080/webname/test/request/ajaxtest。
+        //     /webname/test/test.html页面
+        $.ajax({
+            url:"request/ajaxtest"
+        });
+        原因：test.html页面对应的路径是“/webname/test/”，所以将url要跟在test这一级下面。
+
+
+
+----------------------------------------------路径中的斜杠与反斜杠=--------------------------------------------------------------
+（1）浏览器地址栏网址使用 斜杆/ ;
+（2）windows文件浏览器上使用 反斜杠\ ;
+（3）出现在html url() 属性中的路径，指定的路径是网络路径，所以必须用 斜杆/ ;
+<div style="background-image:url(/Image/Control/title.jpg); background-repeat:repeat-x; padding:10px 10px 10px 10px"></div>
+// 如果url后面用反斜杠，就不会显示任何背景
+（4）出现在普通字符串中的路径，如果代表的是windows文件路径，则使用 斜杆/ 和 反斜杠\ 是一样的；如果代表的是网络文件路径，则必须使用 斜杆/ ;
+<img src=".\Image/Control/ding.jpg" /> // 本地文件路径，/ 和 \ 是等效的
+<img src="./Image\Control\cai.jpg" />
+<img src="http://hiphotos.baidu.com/yuhua522/pic/item/01a949c67e1023549c163df2.jpg" /> // 网络文件路径，一定要使用 斜杆/
+
+反斜杠还表示转义，例如：\t表示回车  \n表示换行  想要输出反斜杠需要 \\
+
+
+
+
+------------------------------java 后台服务路径url中的首个/ 和html中url的首个/  区别--------------------------------------------
+Java代码中的url中的首个斜杠表示 当前服务的根路径（包含项目名称，即tomcat中webapps下面的项目子目录），http://127.0.0.1:8080/srs
+
+html页面中url 的首个斜杠表示 当前页面所属服务的根目录（不包含项目名称，即即tomcat中webapps目录）。http://127.0.0.1:8080/
+
+jsp页面中被<%  %>包裹的代码数据Java代码，属于后台代码，所以里面包含的路径中的斜杠是包含项目名称的。其余代码属于html代码。
+
+
+---------------------------------------------------------Hadoop database(Hadoop数据库)------------------------------------------------
+Hadoop HDFS为HBase提供了高可靠性的底层存储支持，Hadoop MapReduce为HBase提供了高性能的计算能力，Zookeeper为HBase提供了稳定服务和failover机制。Pig和Hive还为HBase提供了高层语言支持，使得在HBase上进行数据统计处理变的非常简单。 Sqoop则为HBase提供了方便的RDBMS（关系型数据库）数据导入功能，使得传统数据库数据向HBase中迁移变的非常方便。
+
+
+
+------------------------------------------------RequestContextListener----------------------------------------------------------------------
+在介绍webApplicationContext初始化时，我们已经通过ContextLoaderListener将web容器与spring容器整合，为什么这里又要引入一个额外的RequestContextListener以支持Bean的另外3个作用域呢?
+
+在整合spring容器时使用ContextLoaderListener，它实现了ServletContextListener监听器接口，ServletContextListener只负责监听web容器启动和关闭的事件。
+
+而RequestContextListener实现ServletRequestListener监听器接口，该监听器监听HTTP请求事件，web服务器接收的每一次请求都会通知该监听器。
+
+spring容器启动和关闭操作由web容器的启动和关闭事件触发，但如果spring容器中的Bean需要request,session,globalsession作用域的支持，spring容器本身就必须获得web容器的HTTP请求事件，以HTTP请求的事件驱动Bean作用域的控制逻辑。
+
+
+------------------------------------------------------------------------Session----------------------------------------------------
+在Java Web开发中，Session为我们提供了很多方便，Session是由浏览器和服务器之间维护的。Session超时理解为：浏览器和服务器之间创建了一个Session，由于客户端长时间（休眠时间）没有与服务器交互，服务器将此Session销毁，客户端再一次与服务器交互时之前的Session就不存在了。
+设置Session超时时间方式：
+方式一：
+ 在web.xml中设置session-config如下：
+ <session-config>
+  <session-timeout>2</session-timeout>
+ </session-config>
+ 即客户端连续两次与服务器交互间隔时间最长为2分钟，2分钟后session.getAttribute()获取的值为空
+ API信息：
+  session.getCreationTime()   获取session的创建时间
+  session.getLastAccessedTime()  获取上次与服务器交互时间
+  session.getMaxInactiveInterval() 获取session最大的不活动的间隔时间，以秒为单位120秒。
+方式二：
+ 在Tomcat的/conf/web.xml中session-config,默认值为：30分钟
+ <session-config>
+        <session-timeout>30</session-timeout>
+    </session-config>
+方式三：
+ 在Servlet中设置
+  HttpSession session = request.getSession();
+  session.setMaxInactiveInterval(60);//单位为秒
+
+说明：
+ 1.优先级：Servlet中API设置 > 程序/web.xml设置 > Tomcat/conf/web.xml设置
+ 2.若访问服务器session超时（本次访问与上次访问时间间隔大于session最大的不活动的间隔时间）了，即上次会话结束，但服务器与客户端会产生一个新的会话，之前的session里的属性值全部丢失，产生新的sesssionId
+ 3.客户端与服务器一次有效会话（session没有超时），每次访问sessionId相同，若代码中设置了session.setMaxInactiveInterval()值，那么这个session的最大不活动间隔时间将被修改，并被应用为新值。
+ 4.Session的销毁（代表会话周期的结束）：在某个请求周期内调用了Session.invalidate()方法，此请求周期结束后，session被销毁；或者是session超时后自动销毁；或者客户端关掉浏览器
+ 5.对于JSP，如果指定了<%@ page session="false"%>，则在JSP中无法直接访问内置的session变量，同时也不会主动创建session，因为此时JSP未自动执行request.getSession()操作获取session。
+
+JSP文件在编译成Servlet时将会自动加上这样一条语句 HttpSession session = HttpServletRequest.getSession(true);这也是JSP中隐含的session对象的来历
+
+-----------------------------------------------------浏览器页面跨域-------------------------------------------------------------------------
+浏览器的同源策略会导致跨域，这里同源策略又分为以下两种
+
+    DOM同源策略：禁止对不同源页面DOM进行操作。这里主要场景是iframe跨域的情况，不同域名的iframe是限制互相访问的。
+    XmlHttpRequest同源策略：禁止使用XHR对象向不同源的服务器地址发起HTTP请求。
+
+    只要协议、域名、端口有任何一个不同，都被当作是不同的域，之间的请求就是跨域操作。
+
+
+
+
+--------------------------------------------------------------spring 父子容器--------------------------------------------------------------------
+　在Spring整体框架的核心概念中，容器是核心思想，就是用来管理Bean的整个生命周期的，而在一个项目中，容器不一定只有一个，Spring中可以包括多个容器，而且容器有上下层关系，目前最常见的一种场景就是在一个项目中引入Spring和SpringMVC这两个框架，那么它其实就是两个容器，Spring是父容器，SpringMVC是其子容器，并且在Spring父容器中注册的Bean对于SpringMVC容器中是可见的，而在SpringMVC容器中注册的Bean对于Spring父容器中是不可见的，也就是子容器可以看见父容器中的注册的Bean，反之就不行。
+
+　　我们可以使用统一的如下注解配置来对Bean进行批量注册，而不需要再给每个Bean单独使用xml的方式进行配置。
+
+<context:component-scan base-package="com.hafiz.www" />
+
+　　从Spring提供的参考手册中我们得知该配置的功能是扫描配置的base-package包下的所有使用了构造型（stereotype）注解所标注的类，如@Component(组件)，@Service（服务），@Controller（控制器），@Repository（数据仓库），并将他们注册到容器中。
+
+　　在项目中我们经常见到还有如下这个配置，其实有了上面的配置，这个是可以省略掉的，因为上面的配置会默认打开以下配置。以下配置会默认声明了@Required、@Autowired、 @PostConstruct、@PersistenceContext、@Resource、@PreDestroy等注解。
+
+<context:annotation-config/>
+
+　　另外，还有一个和SpringMVC相关如下配置，经过验证，这个是SpringMVC必须要配置的，因为它声明了@RequestMapping、@RequestBody、@ResponseBody等。并且，该配置默认加载很多的参数绑定方法，比如json转换解析器等。
+
+<mvc:annotation-driven />
+
+
+
+---------------------------------------------------------------web.xml  spring   WebAppRootListener-------------------------------------------------------
+
+这个监听器会在web上下文初始化的时候，cs调用webUtil的对应方法，首先获取根传递进来的servletContext得到物理路径，String path=servletContext.getRealPath("/");  然后找到context-param的webAooRootKey对应的param-value，把param-value的值作为key，下面配置的是"myroot", 接着执行System.setProperty("myroot",path)。这样在web中就可以使用System.getProperty("myroot")来获取系统的绝对路径。
+
+<context-param>
+<param-name>webAppRootKey</param-name>
+<param-value>myroot</param-value>
+</context-param>
+"myroot"这个字符串可以随便写任何字符串。如果不配置默认值是"webapp.root"。
+ 
+可以用System.getProperty("myroot")来动态获项目的运行路径。
+一般返回结果例如：/usr/local/tomcat6/webapps/项目名
+
+注意：部署在同一容器中的Web项目，要配置不同的<param-value>，不能重复，否则报类似下面的错误:
+Web app root system property already set to different value: 'webapp.root' = [/home/user/tomcat/webapps/project1/] instead of [/home/user/tomcat/webapps/project2/] - Choose unique values for the 'webAppRootKey' context-param in your web.xml files! 
+意思是“webapp.root”这个key已经指向了项目1，不可以再指向项目2.
+
+------------------------------------------------------------------linux-------------------------------------------
+ps aux 查看所有进程以及内存占比
+
+
+
+
+--------------------------------------------------------------tcp\ip和http-------------------------------------------------------------------------
+TPC/IP协议是传输层协议，主要解决数据如何在网络中传输，而HTTP是应用层协议，主要解决如何包装数据。
+术语TCP/IP代表传输控制协议/网际协议，指的是一系列协议。“IP”代表网际协议，TCP和UDP使用该协议从一个网络传送数据包到另一个网络。把IP想像成一种高速公路，它允许其它协议在上面行驶并找到到其它电脑的出口。TCP和UDP是高速公路上的“卡车”，它们携带的货物就是像HTTP，文件传输协议FTP这样的协议等。 
+
+
+
+
+
+-------------------------------------------什么是url转发，url转发的原理是什么---------------------------------------------------------------
+
+url转发是域名解析的一个重要功能。但是域名解析记录里面却本身不包含转发记录，这是怎么回事呢？
+
+我们这里就来讲解一下url转发的原理：
+
+所谓的url转发，就是先对域名做一个CNAME记录，然后由CNAME记录来对应一个转发地址，用html程序来实现跳转。举个例子：我要把bbs.abc.com转发到www.abc.com/bbs目录，那我应该怎么做呢？
+
+首先在abc.com里面做一个CNAME（别名）记录bbs，指向域名注册商转发服务器地址，比如 fw1.domainreg.com
+
+然后再添加一个转发记录，用bbs.abc.com指向www.abc.com/bbs，剩下的工作，就交给转发服务器。
+
+那么，转发服务器又做了什么呢？在转发服务器上有一个绑定域名为fw1.domainreg.com的站点，访问bbs.abc.com的时候，由于做了CNAME记录，会被跳转到fw1.domainreg.com网站， 这个网站的首页面会接收到浏览器地址栏上的bbs.abc.com这个地址参数，然后到数据库里面一查，发现了一个转发记录到www.abc.com/bbs，于是，它就把浏览器重新跳转到www.abc.com/bbs这个地址里面去了。
+
+原理很简单是吧。 有人又要问隐藏转发什么的，其实啊，隐藏转发就是在普通转发的基础上加了一个IFRAME标签。懂html的，相信已经明白了吧。
+
+
+
+-------------------------------------------判断两个ip地址是否属于同一个网络中-------------------------------------------------
+对于任何的计算机，你把它们的IP地址与子网掩码相应位进行相与，得出的结果相同，就是属于同一子网。什么是：相与。相与就是1与1＝1，1与0＝0，0与0＝0.相应位就是最底位与最低位，一直与到最高位。比如：
+192.1.1.0 子网掩码：255.255.255.192
+192.1.1.55 子网掩码：255.255.255.192
+把相应的IP地址和子网掩码写成二进制，进行与操作：
+11000000.00000001.00000001.00000011＝192.1.1.3
+11111111.11111111.11111111.11000000=255.255.255.192 结果如下：
+11000000.00000001.00000001.00000000＝192.1.1.0
+上面的结果就是192.168.1.3所在的子网的网络地址。你看下IP地址和子网掩码，排成一列的，就是相应位了，同为1的就是1，其余的都取0，就得出结果了。再来看下另一个地址：
+11000000.00000001.00000001.00110101＝192.1.1.55
+11111111.11111111.11111111.11000000=255.255.255.192 结果如下：
+11000000.00000001.00000001.00000000＝192.1.1.0
+结果一样，所以是同属于一个子网的。如果把192.168.1.55换为另一个地址：192.168.1.65就不同
+
+备注：ip分为四部分，每部分大小范围从0-255，系统可转换为用八位二进制数来表示，子网掩码的限定了了该子网中最多可包含几个ip地址，如果子网掩码是255.255.255.192，则可包含255-192=63+1个ip地址（X.X.X.0-X.X.X.63）
+
+
+
+-------------------------------------------------------------什么是网关-----------------------------------------------------------------------------
+那么网关到底是什么呢？网关实质上是一个网络通向其他网络的IP地址。比如有网络A和网络B，网络A的IP地址范围为“192.168.1.1~192. 168.1.254”，子网掩码为255.255.255.0；网络B的IP地址范围为“192.168.2.1~192.168.2.254”，子网掩码为255.255.255.0。在没有路由器的情况下，两个网络之间是不能进行TCP/IP通信的，即使是两个网络连接在同一台交换机（或集线器）上，TCP/IP协议也会根据子网掩码（255.255.255.0）判定两个网络中的主机处在不同的网络里。而要实现这两个网络之间的通信，则必须通过网关。如果网络A中的主机发现数据包的目的主机不在本地网络中，就把数据包转发给它自己的网关，再由网关转发给网络B的网关，网络B的网关再转发给网络B的某个主机（如附图所示）。网络A向网络B转发数据包的过程。
+所以说，只有设置好网关的IP地址，TCP/IP协议才能实现不同网络之间的相互通信。那么这个IP地址是哪台机器的IP地址呢？网关的IP地址是具有路由功能的设备的IP地址，具有路由功能的设备有路由器、启用了路由协议的服务器（实质上相当于一台路由器）、代理服务器（也相当于一台路由器）。
+在和 Novell NetWare 网络交互操作的上下文中，网关在 Windows 网络中使用的服务器信息块 (SMB) 协议以及NetWare网络使用的 NetWare 核心协议 (NCP) 之间起着桥梁的作用。网关也被称为 IP路由器。
+
+
+-----------------------------------------------------------------分库分表--------------------------------------------------------
+
+
+-------------------------------------------------------------------分布式锁-----------------------------------------------------------
+
+
+---------------------------------------------------------------乐观锁和悲观锁---------------------------------------------------------
+乐观锁（ Optimistic Locking ） 相对悲观锁而言，乐观锁机制采取了更加宽松的加锁机制。悲观锁大多数情况下依靠数据库的锁机制实现，以保证操作最大程度的独占性。但随之而来的就是数据库性能的大量开销，特别是对长事务而言，这样的开销往往无法承受。而乐观锁机制在一定程度上解决了这个问题。乐观锁，大多是基于数据版本（ Version ）记录机制实现。何谓数据版本？即为数据增加一个版本标识，在基于数据库表的版本解决方案中，一般是通过为数据库表增加一个 “version” 字段来实现。读取出数据时，将此版本号一同读出，之后更新时，对此版本号加一。此时，将提交数据的版本数据与数据库表对应记录的当前版本信息进行比对，如果提交的数据版本号大于数据库表当前版本号，则予以更新，否则认为是过期数据。
+
+悲观锁（Pessimistic Lock），正如其名，具有强烈的独占和排他特性。它指的是对数据被外界（包括本系统当前的其他事务，以及来自外部系统的事务处理）修改持保守态度，因此，在整个数据处理过程中，将数据处于锁定状态。悲观锁的实现，往往依靠数据库提供的锁机制（也只有数据库层提供的锁机制才能真正保证数据访问的排他性，否则，即使在本系统中实现了加锁机制，也无法保证外部系统不会修改数据）。
+
+悲观锁：假定会发生并发冲突，屏蔽一切可能违反数据完整性的操作。[1]
+乐观锁：假设不会发生并发冲突，只在提交操作时检查是否违反数据完整性。[1] 乐观锁不能解决脏读的问题。
+
+
+
+-=---------------------------------------------------------【thrift到底怎么用】-------------------------------------------------------------------------
+
+
+依然拿上面的“成绩数据库”的例子来说，thrift的使用可以被分为四步：
+
+第1步： 明确要交互的数据格式（如上例中的UserGradeInfo）和具体的方法（如上例中的Search），定义出thrift接口描述文件（英文叫做Inteface Description File）；
+
+第2步： 调用thrift工具，依据thrift接口文件，生成RPC代码；
+
+第3步： 你的服务器端程序引用thrift生成的RPC代码，并实现其中的Search动作的逻辑，然后启动监听，等待客户端发来请求。
+
+第4步： 客户端同样引入并调用RPC代码来与服务器端通信；
+
+
+
+
+----------------------------------------------------------------查看完整控制台日志--------------------------------------------------------------------
+可将console日志重定向到文件中，文件自定义。（在tomcat中配置）
+
+-------------------------------------------------------------@Controller 容器归属----------------------------------------------
+springmvc是处理映射请求，而spring是bean容器。spring扫描后将@Controller注解视为一个对象保存在容器中，如果不在mvc中启动扫描@Controller注解的话那么即使访问该映射的路径（@RequestMapping路径）下的文件也会报错404，因为springmvc找不到，因此必须要让springmvc框架去扫描@Controller才能真正的映射到指定路径。而且为了架构清晰可以只让springmvc管理不需要spring管理了。希望对你有帮助。
+
+
+----------------------------------------------------------maven package install---------------------------------------------------------------------
+之前一直不明白package与  install的区别，今天测试了下。
+
+ 如果b项目依赖a项目，而a打了包(package),jar仅仅时打到了a项目的target下。这时编译b项目，还是会报错，找不到所依赖的a项目，说明b项目在本地仓库是没有找到它所依赖的a项目。然后，我install a项目这时，有以下日志,[INFO] Installing G:\projects\a\target\a-0.0.1-SNAPSHOT.jar to F:\repository\com\chenjun\a\0.0.1-SNAPSHOT\a-0.0.1-SNAPSHOT.jar
+[INFO] Installing G:\projects\a\pom.xml to F:\repository\com\chenjun\a\0.0.1-SNAPSHOT\a-0.0.1-SNAPSHOT.pom,说明a项目已安装到本地仓库了,并且是jar和pom同时安装的.
+
+这时候去compileb项目，编译通过.
+
+总之，package是把jar打到本项目的target下，而install时把target下的jar安装到本地仓库，供其他项目使用.
+
+
+----------------------------------------------RPC 和 HTTP 协议的区别-----------------------------------------------------------------------------
+两种形式的C/S架构，先说一下他们最本质的区别，就是RPC主要是基于TCP/IP协议的，而HTTP服务主要是基于HTTP协议的，我们都知道HTTP协议是在传输层协议TCP之上的，所以效率来看的话，RPC当然是要更胜一筹啦！
+
+这个问题其实是有理解误区的，首先 http 和 rpc 并不是一个并行概念。
+
+rpc是远端过程调用，其调用协议通常包含传输协议和编码协议。
+
+传输协议包含: 如著名的 [gRPC](grpc / grpc.io) 使用的 http2 协议，也有如dubbo一类的自定义报文的tcp协议。
+
+编码协议包含: 如基于文本编码的 xml json，也有二进制编码的 protobuf binpack 等。
+
+因此我理解的你想问的问题应该是：为什么要使用自定义 tcp 协议的 rpc 做后端进程通信？
+
+要解决这个问题就应该搞清楚 http 使用的 tcp 协议，和我们自定义的 tcp 协议在报文上的区别。
+
+首先要否认一点 http 协议相较于自定义tcp报文协议，增加的开销在于连接的建立与断开。http协议是支持连接池复用的，也就是建立一定数量的连接不断开，并不会频繁的创建和销毁连接。二一要说的是http也可以使用protobuf这种二进制编码协议对内容进行编码，因此二者最大的区别还是在传输协议上。
+
+通用定义的http1.1协议的tcp报文包含太多废信息，而自定义的tcp则精简了传输内容，这也就是为什么后端进程间通常会采用自定义tcp协议的rpc来进行通信的原因。
+
+所谓的效率优势是针对http1.1协议来讲的，http2.0协议已经优化编码效率问题，像grpc这种rpc库使用的就是http2.0协议。这么来说吧http容器的性能测试单位通常是kqps，自定义tpc协议则通常是以10kqps到100kqps为基准
+
+简单来说成熟的rpc库相对http容器，跟多的是封装了“服务发现”，"错误重试"一类面向服务的高级特性。可以这么理解，rpc框架是面向服务的更高级的封装。如果把一个http server容器上封装一层服务发现和函数代理调用，那它就已经可以做一个rpc框架了。
+
+所以为什么要用rpc调用？
+
+因为良好的rpc调用是面向服务的封装，针对服务的可用性和效率等都做了优化。单纯使用http调用则缺少了这些特性。
+
+
+
+--------------------------------------------------------------------------Java 序列化-------------------------------------------------------------------------
+简单的说序列化就是以某种方式将内存中的Java对象编程2进制字节
+
+既然是字节，那么处理起来就很方便，可以存储起来，也可以存在文件中、或者发送给别人。
+
+ Java平台允许我们在内存中创建可复用的Java对象，但一般情况下，只有当JVM处于运行时，这些对象才可能存在，即，这些对象的生命周期不会比JVM的生命周期更长（即每个对象都在JVM中）
+
+但在现实应用中，就可能要停止JVM运行，但有要保存某些指定的对象，并在将来重新读取被保存的对象。这是Java对象序列化就能够实现该功能。（可选择入数据库、或文件的形式保存）
+
+但是有时候，是需要在网络上传输某些对象，如当使用RMI(远程方法调用)，也需要用到序列化和反序列化
